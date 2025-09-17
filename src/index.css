@@ -1,0 +1,255 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light theme - General Store inspired */
+    --background: 220 20% 97%;
+    --foreground: 215 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 12%;
+
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 142 8% 94%;
+    --secondary-foreground: 142 71% 15%;
+
+    --muted: 142 8% 94%;
+    --muted-foreground: 215 12% 45%;
+
+    --accent: 142 15% 90%;
+    --accent-foreground: 142 71% 25%;
+
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 142 8% 88%;
+    --input: 142 8% 88%;
+    --ring: 142 71% 45%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 142 12% 97%;
+    --sidebar-foreground: 215 25% 12%;
+    --sidebar-primary: 142 71% 45%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 142 8% 90%;
+    --sidebar-accent-foreground: 142 71% 25%;
+    --sidebar-border: 142 8% 88%;
+    --sidebar-ring: 142 71% 45%;
+  }
+
+  .dark {
+    /* Dark theme - Modern store aesthetic */
+    --background: 215 28% 8%;
+    --foreground: 142 15% 92%;
+
+    --card: 215 25% 10%;
+    --card-foreground: 142 15% 92%;
+
+    --popover: 215 25% 10%;
+    --popover-foreground: 142 15% 92%;
+
+    --primary: 142 71% 55%;
+    --primary-foreground: 215 28% 8%;
+
+    --secondary: 215 22% 15%;
+    --secondary-foreground: 142 15% 85%;
+
+    --muted: 215 22% 15%;
+    --muted-foreground: 142 8% 65%;
+
+    --accent: 215 22% 18%;
+    --accent-foreground: 142 15% 85%;
+
+    --destructive: 0 75% 65%;
+    --destructive-foreground: 215 28% 8%;
+
+    --border: 215 22% 18%;
+    --input: 215 22% 18%;
+    --ring: 142 71% 55%;
+
+    --sidebar-background: 215 28% 7%;
+    --sidebar-foreground: 142 15% 92%;
+    --sidebar-primary: 142 71% 55%;
+    --sidebar-primary-foreground: 215 28% 8%;
+    --sidebar-accent: 215 22% 15%;
+    --sidebar-accent-foreground: 142 15% 85%;
+    --sidebar-border: 215 22% 18%;
+    --sidebar-ring: 142 71% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+
+  /* Store-themed card styles */
+  .store-card {
+    @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl shadow-soft hover:shadow-soft-xl transition-all duration-300;
+  }
+
+  .store-card:hover {
+    @apply -translate-y-1 border-primary/20;
+  }
+
+  /* Modern button variations */
+  .btn-store {
+    @apply bg-gradient-to-r from-store-500 to-emerald-500 hover:from-store-600 hover:to-emerald-600 text-white font-medium px-6 py-2.5 rounded-lg shadow-soft hover:shadow-md transition-all duration-200;
+  }
+
+  .btn-store-outline {
+    @apply border-2 border-store-500 text-store-600 hover:bg-store-500 hover:text-white font-medium px-6 py-2.5 rounded-lg transition-all duration-200;
+  }
+
+  /* Sidebar improvements */
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-200;
+  }
+
+  .sidebar-item.active {
+    @apply bg-sidebar-primary text-sidebar-primary-foreground shadow-sm;
+  }
+
+  /* Form enhancements */
+  .form-input {
+    @apply bg-background/50 backdrop-blur-sm border-border/60 focus:border-primary/60 focus:ring-primary/20 rounded-lg transition-all duration-200;
+  }
+
+  /* Dashboard stats cards */
+  .stat-card {
+    @apply store-card p-6 relative overflow-hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    @apply absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-store-500 to-emerald-500;
+  }
+
+  /* Chart containers */
+  .chart-container {
+    @apply store-card p-6;
+  }
+
+  /* Loading animations */
+  .loading-pulse {
+    @apply animate-pulse bg-muted/50 rounded-lg;
+  }
+
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-muted border-t-primary;
+  }
+}
+
+/* Enhanced animations */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Glassmorphism effects */
+.glass-light {
+  @apply backdrop-blur-lg bg-white/40 dark:bg-slate-900/40 border border-white/20 dark:border-slate-700/20;
+}
+
+.glass-strong {
+  @apply backdrop-blur-xl bg-white/60 dark:bg-slate-900/60 border border-white/30 dark:border-slate-700/30;
+}
+
+/* Text gradients */
+.text-gradient-store {
+  @apply bg-gradient-to-r from-store-600 to-emerald-600 bg-clip-text text-transparent;
+}
+
+.text-gradient-primary {
+  @apply bg-gradient-to-r from-primary to-store-500 bg-clip-text text-transparent;
+}
+
+/* Enhanced focus styles */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background;
+}
+
+/* Scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-muted/30 rounded-full;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50;
+}
+
+/* Mobile-first responsive utilities */
+@media (max-width: 640px) {
+  .mobile-padding {
+    @apply px-4 py-2;
+  }
+
+  .mobile-text {
+    @apply text-sm;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .store-card {
+    @apply border-2;
+  }
+
+  .btn-store {
+    @apply ring-2 ring-primary;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

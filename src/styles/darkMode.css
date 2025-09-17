@@ -1,0 +1,38 @@
+/* Dark mode styles - Store Manager Pro */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+html.dark .bg-white {
+  background-color: hsl(var(--card)) !important;
+}
+
+html.dark .bg-background {
+  background-color: hsl(var(--background)) !important;
+}
+
+html.dark .bg-muted\/50 {
+  background-color: hsl(var(--muted) / 0.5) !important;
+}
+
+html.dark .bg-gradient-to-br.from-store-50\/30.via-white.to-emerald-50\/30 {
+  background: linear-gradient(to bottom right, rgba(15, 25, 15, 0.4), rgba(20, 20, 20, 0.9), rgba(15, 25, 15, 0.4));
+}
+
+html.dark .border-store-100 {
+  border-color: hsl(var(--border)) !important;
+}
+
+html.dark .text-store-600 {
+  color: hsl(var(--primary)) !important;
+}
+
+html.dark .bg-white.shadow-md {
+  background-color: hsl(var(--card)) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
