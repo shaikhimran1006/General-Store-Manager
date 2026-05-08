@@ -353,6 +353,12 @@ export const generateInvoicePDF = (saleData: InvoiceData) => {
       finalY = 200; // Fallback position if lastAutoTable is not available
     }
 
+    const summaryBlockHeight = 80 + (gstBreakdownEntries.length * 4);
+    if (finalY + summaryBlockHeight > pageHeight - margin) {
+      doc.addPage();
+      finalY = margin;
+    }
+
     // Add summary section with background
     const summaryBoxHeight = 48;
     doc.setFillColor(COLORS.lightGray);
