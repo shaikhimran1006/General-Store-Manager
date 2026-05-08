@@ -4,6 +4,7 @@ export interface StoreItem {
   name: string;
   description: string;
   price: number;
+  gstRate?: number;
   quantity: number;
   imageUrl: string;
   sku: string;
@@ -47,12 +48,15 @@ export interface CustomerTransaction {
     unit: string;
     total: number;
     category: string;
+    gstRate?: number;
+    gstAmount?: number;
   }[];
   subtotal: number;
   discount: number;
   discountAmount: number;
-  vatRate: number;
-  vatAmount: number;
+  gstAmount?: number;
+  vatRate?: number;
+  vatAmount?: number;
   cashierName?: string;
   cashierId?: string;
   notes?: string;

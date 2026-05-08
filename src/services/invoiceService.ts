@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { formatToRupees } from "@/types/inventory";
 import { toast } from "@/hooks/use-toast";
 
@@ -9,22 +9,49 @@ interface TableColumn {
   dataKey?: string;
 }
 
+interface InvoiceItem {
+  id?: string;
+  name: string;
+  price: number;
+  quantity: number;
+  total?: number;
+  gstRate?: number;
+  gstAmount?: number;
+}
+
+interface InvoiceData {
+  id?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  paymentMethod?: string;
+  timestamp?: Date | string | number;
+  items: InvoiceItem[];
+  subtotal?: number;
+  discount?: number;
+  discountAmount?: number;
+  gstAmount?: number;
+  total?: number;
+  vatRate?: number;
+  vatAmount?: number;
+}
+
 // Properly define the extended jsPDF type with autoTable
 declare module "jspdf" {
   interface jsPDF {
     autoTable: (options: {
       startY?: number;
-      head?: any[][];
-      body: any[][];
+      head?: Array<Array<unknown>>;
+      body: Array<Array<unknown>>;
       theme?: string;
-      styles?: any;
-      headStyles?: any;
-      alternateRowStyles?: any;
-      columnStyles?: any;
-      margin?: any;
-      tableWidth?: any;
-      didDrawPage?: (data: any) => void;
-    }) => any;
+      styles?: Record<string, unknown>;
+      headStyles?: Record<string, unknown>;
+      alternateRowStyles?: Record<string, unknown>;
+      columnStyles?: Record<string, unknown>;
+      margin?: number | Record<string, unknown>;
+      tableWidth?: number | string;
+      didDrawPage?: (data: Record<string, unknown>) => void;
+    }) => unknown;
     lastAutoTable: {
       finalY: number;
     };
@@ -34,10 +61,10 @@ declare module "jspdf" {
 // Constants for branding
 const COMPANY_NAME = "StoreManager Pro";
 const COMPANY_TAGLINE = "Complete General Store Management";
-const COMPANY_ADDRESS = "123 Business Street, Solapur, India";
-const COMPANY_PHONE = "+91 9421612110";
-const COMPANY_EMAIL = "manager@storemanagerpro.com";
-const COMPANY_WEBSITE = "StoreManager Pro Solutions";
+const COMPANY_ADDRESS = "SHRI GOLLALLESHWAR GENERAL STORE \nDUDHANI-413220.";
+const COMPANY_PHONE = "+91 9322455422";
+const COMPANY_EMAIL = "gollalleshwarstore15@gmail.com";
+const COMPANY_WEBSITE = "N/A";
 
 // Color scheme for invoice
 const COLORS = {
@@ -48,6 +75,51 @@ const COLORS = {
   lightGray: "#ecf0f1",  // Light gray
   mediumGray: "#bdc3c7", // Medium gray
   white: "#ffffff"
+};
+
+const getSaleGstSummary = (saleData: InvoiceData) => {
+  const rawItems = Array.isArray(saleData?.items) ? saleData.items : [];
+  const fallbackSubtotal = rawItems.reduce(
+    (sum, item) => sum + (item.price * item.quantity),
+    0
+  );
+  const subtotal = typeof saleData?.subtotal === "number"
+    ? saleData.subtotal
+    : fallbackSubtotal;
+  const discountAmount = typeof saleData?.discountAmount === "number"
+    ? saleData.discountAmount
+    : (subtotal * (saleData?.discount || 0)) / 100;
+  const safeSubtotal = subtotal > 0 ? subtotal : 0;
+  const fallbackVatRate = typeof saleData?.vatRate === "number"
+    ? saleData.vatRate
+    : 0;
+
+  const itemsWithGst = rawItems.map((item) => {
+    const lineTotal = typeof item.total === "number"
+      ? item.total
+      : item.price * item.quantity;
+    const lineDiscount = safeSubtotal > 0
+      ? (discountAmount * (lineTotal / safeSubtotal))
+      : 0;
+    const taxableAmount = lineTotal - lineDiscount;
+    const gstRate = typeof item.gstRate === "number" ? item.gstRate : fallbackVatRate;
+    const gstAmount = typeof item.gstAmount === "number"
+      ? item.gstAmount
+      : (taxableAmount * gstRate) / 100;
+
+    return {
+      ...item,
+      lineTotal,
+      gstRate,
+      gstAmount,
+    };
+  });
+
+  const gstTotal = itemsWithGst.reduce((sum, item) => sum + (item.gstAmount || 0), 0);
+  const taxableAmount = Math.max(subtotal - discountAmount, 0);
+  const effectiveGstRate = taxableAmount > 0 ? (gstTotal / taxableAmount) * 100 : 0;
+
+  return { itemsWithGst, gstTotal, effectiveGstRate };
 };
 
 // Helper function to download the PDF using browser's built-in functionality
@@ -68,7 +140,7 @@ const downloadPDF = (pdf: jsPDF, filename: string) => {
   }
 };
 
-export const generateInvoicePDF = (saleData: any) => {
+export const generateInvoicePDF = (saleData: InvoiceData) => {
   try {
     console.log("Generating invoice with data:", saleData);
 
@@ -119,12 +191,16 @@ export const generateInvoicePDF = (saleData: any) => {
     doc.setTextColor(COLORS.text);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("FROM:", margin + 5, 58);
+    doc.text("FROM:", margin + 5, 57);
     doc.setFont("helvetica", "normal");
-    doc.text(COMPANY_ADDRESS, margin + 5, 65);
-    doc.text(`Phone: ${COMPANY_PHONE}`, margin + 5, 72);
-    doc.text(`Email: ${COMPANY_EMAIL}`, margin + 5, 79);
-    doc.text(`Website: ${COMPANY_WEBSITE}`, margin + 5, 86);
+    const fromAddressLines = COMPANY_ADDRESS.split("\n");
+    const fromAddressY = 64;
+    const fromLineHeight = 5;
+    doc.text(fromAddressLines, margin + 5, fromAddressY);
+    const contactStartY = fromAddressY + (fromAddressLines.length * fromLineHeight) + 2;
+    doc.text(`Phone: ${COMPANY_PHONE}`, margin + 5, contactStartY);
+    doc.text(`Email: ${COMPANY_EMAIL}`, margin + 5, contactStartY + 6);
+    doc.text(`Website: ${COMPANY_WEBSITE}`, margin + 5, contactStartY + 12);
 
     // Invoice details box with light background
     doc.setFillColor(COLORS.lightGray);
@@ -187,18 +263,31 @@ export const generateInvoicePDF = (saleData: any) => {
     doc.setTextColor(COLORS.white);
     doc.text("INVOICE ITEMS", pageWidth / 2, tableStartY + 7, { align: "center" });
 
+    const { itemsWithGst, gstTotal, effectiveGstRate } = getSaleGstSummary(saleData);
+    const gstBreakdown = itemsWithGst.reduce<Record<string, number>>((acc, item) => {
+      const rate = typeof item.gstRate === "number" ? item.gstRate : 0;
+      const key = rate.toFixed(2).replace(/\.00$/, "");
+      acc[key] = (acc[key] || 0) + (item.gstAmount || 0);
+      return acc;
+    }, {});
+    const gstBreakdownEntries = Object.entries(gstBreakdown)
+      .filter(([, amount]) => amount > 0)
+      .sort((a, b) => Number(a[0]) - Number(b[0]));
+
     // Prepare table data
-    const tableColumns = ["Item", "Price", "Qty", "Total"];
-    const tableRows = saleData.items.map((item: any) => [
+    const tableColumns = ["Item", "Price", "Qty", "GST%", "GST Amt", "Total"];
+    const tableRows: Array<Array<string | number>> = itemsWithGst.map((item) => [
       item.name,
       formatToRupees(item.price),
       item.quantity,
+      `${item.gstRate}%`,
+      formatToRupees(item.gstAmount),
       formatToRupees(item.price * item.quantity)
     ]);
 
     // Generate the table with enhanced styling
     try {
-      doc.autoTable({
+      autoTable(doc, {
         startY: tableStartY + 12,
         head: [tableColumns],
         body: tableRows,
@@ -221,10 +310,12 @@ export const generateInvoicePDF = (saleData: any) => {
           fillColor: [245, 247, 250],
         },
         columnStyles: {
-          0: { cellWidth: 'auto', fontStyle: 'bold' },
-          1: { cellWidth: 'auto', halign: 'right' },
-          2: { cellWidth: 'auto', halign: 'center' },
-          3: { cellWidth: 'auto', halign: 'right', fontStyle: 'bold' }
+          0: { cellWidth: 60, fontStyle: 'bold' },
+          1: { cellWidth: 22, halign: 'right' },
+          2: { cellWidth: 14, halign: 'center' },
+          3: { cellWidth: 14, halign: 'center' },
+          4: { cellWidth: 22, halign: 'right' },
+          5: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
         },
         didDrawPage: function (data) {
           // Add page numbers if multi-page
@@ -244,8 +335,12 @@ export const generateInvoicePDF = (saleData: any) => {
       doc.setTextColor(COLORS.text);
       doc.text("Items:", margin, tableStartY + 15);
       let yPos = tableStartY + 25;
-      tableRows.forEach((row: any[], index: number) => {
-        doc.text(`${index + 1}. ${row[0]} - ${row[1]} × ${row[2]} = ${row[3]}`, margin + 5, yPos);
+      tableRows.forEach((row, index: number) => {
+        doc.text(
+          `${index + 1}. ${row[0]} - ${row[1]} × ${row[2]} | GST ${row[3]}: ${row[4]} | Total ${row[5]}`,
+          margin + 5,
+          yPos
+        );
         yPos += 10;
       });
     }
@@ -259,8 +354,9 @@ export const generateInvoicePDF = (saleData: any) => {
     }
 
     // Add summary section with background
+    const summaryBoxHeight = 48;
     doc.setFillColor(COLORS.lightGray);
-    doc.roundedRect(pageWidth - 80, finalY, 66, 40, 2, 2, 'F');
+    doc.roundedRect(pageWidth - 80, finalY, 66, summaryBoxHeight, 2, 2, 'F');
 
     // Summary heading
     doc.setFont("helvetica", "bold");
@@ -278,22 +374,25 @@ export const generateInvoicePDF = (saleData: any) => {
     doc.text(`Discount (${saleData.discount}%):`, pageWidth - 75, finalY + 22);
     doc.text(`-${formatToRupees(saleData.discountAmount)}`, pageWidth - 18, finalY + 22, { align: "right" });
 
-    doc.text(`GST (${saleData.vatRate}%):`, pageWidth - 75, finalY + 28);
-    doc.text(`${formatToRupees(saleData.vatAmount)}`, pageWidth - 18, finalY + 28, { align: "right" });
+    doc.text("GST (item-wise):", pageWidth - 75, finalY + 28);
+    doc.text(`${formatToRupees(gstTotal)}`, pageWidth - 18, finalY + 28, { align: "right" });
+
+    doc.text("Effective GST %:", pageWidth - 75, finalY + 34);
+    doc.text(`${effectiveGstRate.toFixed(2)}%`, pageWidth - 18, finalY + 34, { align: "right" });
 
     // Add a line before the total
     doc.setDrawColor(COLORS.primary);
     doc.setLineWidth(0.5);
-    doc.line(pageWidth - 75, finalY + 32, pageWidth - 18, finalY + 32);
+    doc.line(pageWidth - 75, finalY + 38, pageWidth - 18, finalY + 38);
 
     // Total with highlighted background
     doc.setFillColor(COLORS.primary);
-    doc.roundedRect(pageWidth - 75, finalY + 33, 57, 7, 1, 1, 'F');
+    doc.roundedRect(pageWidth - 75, finalY + 39, 57, 7, 1, 1, 'F');
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(COLORS.white);
-    doc.text("Total:", pageWidth - 70, finalY + 38);
-    doc.text(`${formatToRupees(saleData.total)}`, pageWidth - 18, finalY + 38, { align: "right" });
+    doc.text("Total:", pageWidth - 70, finalY + 44);
+    doc.text(`${formatToRupees(saleData.total)}`, pageWidth - 18, finalY + 44, { align: "right" });
 
     // Add a decorative bottom border
     doc.setDrawColor(COLORS.primary);
@@ -307,11 +406,19 @@ export const generateInvoicePDF = (saleData: any) => {
     doc.setTextColor(COLORS.text);
     doc.text("Payment Terms: Due on receipt", margin, footerY);
 
-    // Thank you message with style
+    const breakdownStartY = footerY + 6;
+    doc.setFontSize(8);
+    doc.setTextColor(COLORS.mediumGray);
+    doc.text("GST Breakdown:", margin, breakdownStartY);
+    gstBreakdownEntries.forEach(([rate, amount], index) => {
+      doc.text(`${rate}%: ${formatToRupees(amount)}`, margin, breakdownStartY + 5 + (index * 4));
+    });
+
+    const thankYouY = breakdownStartY + 5 + (gstBreakdownEntries.length * 4) + 6;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(COLORS.secondary);
-    doc.text(`Thank you for your business!`, pageWidth / 2, footerY + 8, { align: "center" });
+    doc.text(`Thank you for your business!`, pageWidth / 2, thankYouY, { align: "center" });
 
     // Footer info
     doc.setTextColor(COLORS.mediumGray);
@@ -352,12 +459,14 @@ export const generateInvoicePDF = (saleData: any) => {
 
 // Updated function to send directly to WhatsApp without redirects
 // Note: For true direct sending without opening the browser, a backend API would be needed
-export const sendInvoiceToWhatsApp = (saleData: any) => {
+export const sendInvoiceToWhatsApp = (saleData: InvoiceData) => {
   try {
     if (!saleData.customerPhone) {
       console.error("Customer phone number is missing");
       return false;
     }
+
+    const { gstTotal } = getSaleGstSummary(saleData);
 
     // Format phone number (remove any spaces, dashes, etc)
     let phoneNumber = saleData.customerPhone.replace(/\D/g, '');
@@ -389,14 +498,14 @@ ${saleData.customerPhone ? `Phone: ${saleData.customerPhone}` : ''}
 ${saleData.customerEmail ? `Email: ${saleData.customerEmail}` : ''}
 
 🛒 *Your Purchase*
-${saleData.items.map((item: any, index: number) =>
+${saleData.items.map((item, index: number) =>
       `${index + 1}. ${item.name} x ${item.quantity} = ${formatToRupees(item.price * item.quantity)}`
     ).join('\n')}
 
 💰 *Payment Summary*
 Subtotal: ${formatToRupees(saleData.subtotal)}
 Discount (${saleData.discount}%): ${formatToRupees(saleData.discountAmount)}
-GST (${saleData.vatRate}%): ${formatToRupees(saleData.vatAmount)}
+GST (item-wise): ${formatToRupees(gstTotal)}
 *Total Amount: ${formatToRupees(saleData.total)}*
 
 Thank you for your business! We appreciate your trust in ${COMPANY_NAME}.
@@ -425,12 +534,14 @@ For any queries, please contact us:
 };
 
 // Updated function to send email with a better template
-export const sendInvoiceByEmail = (saleData: any) => {
+export const sendInvoiceByEmail = (saleData: InvoiceData) => {
   try {
     if (!saleData.customerEmail) {
       console.error("Customer email is missing");
       return false;
     }
+
+    const { gstTotal } = getSaleGstSummary(saleData);
 
     // Create email subject
     const subject = `Invoice #${saleData.id.slice(0, 8)} from ${COMPANY_NAME}`;
@@ -453,14 +564,14 @@ ${saleData.customerPhone ? `Phone: ${saleData.customerPhone}` : ''}
 ${saleData.customerEmail ? `Email: ${saleData.customerEmail}` : ''}
 
 PURCHASED ITEMS:
-${saleData.items.map((item: any, index: number) =>
+${saleData.items.map((item, index: number) =>
       `${index + 1}. ${item.name} x ${item.quantity} = ${formatToRupees(item.price * item.quantity)}`
     ).join('\n')}
 
 PAYMENT SUMMARY:
 Subtotal: ${formatToRupees(saleData.subtotal)}
 Discount (${saleData.discount}%): ${formatToRupees(saleData.discountAmount)}
-GST (${saleData.vatRate}%): ${formatToRupees(saleData.vatAmount)}
+GST (item-wise): ${formatToRupees(gstTotal)}
 Total Amount: ${formatToRupees(saleData.total)}
 
 Payment Terms: Due on receipt

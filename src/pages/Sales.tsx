@@ -75,6 +75,7 @@ interface SaleItem {
   name: string;
   price: number;
   quantity: number;
+  gstRate?: number;
 }
 
 interface Transaction {
@@ -91,12 +92,15 @@ interface Transaction {
     price: number;
     quantity: number;
     total: number;
+    gstRate?: number;
+    gstAmount?: number;
   }[];
   subtotal: number;
   discount: number;
   discountAmount: number;
-  vatRate: number;
-  vatAmount: number;
+  gstAmount?: number;
+  vatRate?: number;
+  vatAmount?: number;
 }
 
 const Sales = () => {
@@ -108,7 +112,6 @@ const Sales = () => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [discount, setDiscount] = useState("0");
-  const [vatRate, setVatRate] = useState("18"); // GST in India is commonly 18%
   const [isProcessing, setIsProcessing] = useState(false);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -179,7 +182,7 @@ const Sales = () => {
   const [paymentMethod, setPaymentMethod] = useState("cash");
 
   // UPI ID for online payments
-  const upiId = "storemanager2024@paytm"; const addItem = () => {
+  const upiId = "9322455422@axl"; const addItem = () => {
     if (!selectedItem) return;
 
     const inventoryItem = inventoryItems.find(item => item.id === selectedItem);
@@ -192,6 +195,7 @@ const Sales = () => {
       name: inventoryItem.name,
       price: inventoryItem.price,
       quantity: quantity,
+      gstRate: inventoryItem.gstRate ?? 0,
     };
 
     setItems([...items, newItem]);
@@ -211,6 +215,49 @@ const Sales = () => {
     );
   };
 
+  const calculateTotals = (lineItems: SaleItem[], discountPercent: number) => {
+    const subtotalValue = lineItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
+    const discountAmountValue = (subtotalValue * (discountPercent || 0)) / 100;
+    const afterDiscountValue = subtotalValue - discountAmountValue;
+    const safeSubtotal = subtotalValue > 0 ? subtotalValue : 0;
+
+    const itemsWithTax = lineItems.map((item) => {
+      const lineTotal = item.price * item.quantity;
+      const lineDiscount = safeSubtotal > 0
+        ? (discountAmountValue * (lineTotal / safeSubtotal))
+        : 0;
+      const taxableAmount = lineTotal - lineDiscount;
+      const gstRate = item.gstRate ?? 0;
+      const gstAmount = (taxableAmount * gstRate) / 100;
+
+      return {
+        ...item,
+        lineTotal,
+        gstRate,
+        gstAmount,
+      };
+    });
+
+    const gstAmountValue = itemsWithTax.reduce(
+      (sum, item) => sum + item.gstAmount,
+      0
+    );
+
+    const totalValue = afterDiscountValue + gstAmountValue;
+
+    return {
+      subtotal: subtotalValue,
+      discountAmount: discountAmountValue,
+      gstAmount: gstAmountValue,
+      total: totalValue,
+      itemsWithTax,
+    };
+  };
+
   // Start editing transaction
   const startEditTransaction = (transaction: Transaction) => {
     setIsEditMode(true);
@@ -222,18 +269,27 @@ const Sales = () => {
     setCustomerPhone(transaction.customerPhone || "");
     setCustomerEmail(transaction.customerEmail || "");
     setDiscount(transaction.discount.toString());
-    setVatRate(transaction.vatRate.toString());
 
     // Set payment method if available, otherwise default to cash
     setPaymentMethod(transaction.paymentMethod || "cash");
 
     // Map transaction items to sale items
-    const saleItems: SaleItem[] = transaction.items.map(item => ({
-      id: item.id,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity
-    }));
+    const saleItems: SaleItem[] = transaction.items.map(item => {
+      const inventoryMatch = inventoryItems.find(
+        (inventoryItem) => inventoryItem.id === item.id
+      );
+      const gstRate = typeof item.gstRate === "number"
+        ? item.gstRate
+        : (inventoryMatch?.gstRate ?? 0);
+
+      return {
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        gstRate,
+      };
+    });
 
     setItems(saleItems);
 
@@ -253,7 +309,6 @@ const Sales = () => {
     setCustomerPhone("");
     setCustomerEmail("");
     setDiscount("0");
-    setVatRate("18");
     setPaymentMethod("cash");
   };
 
@@ -270,16 +325,13 @@ const Sales = () => {
 
     setIsProcessing(true);
     try {
-      const updatedSubtotal = items.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0
-      );
-
-      const updatedDiscountAmount = (updatedSubtotal * parseFloat(discount || "0")) / 100;
-      const afterDiscount = updatedSubtotal - updatedDiscountAmount;
-
-      const updatedVatAmount = (afterDiscount * parseFloat(vatRate || "0")) / 100;
-      const updatedTotal = afterDiscount + updatedVatAmount;
+      const {
+        subtotal: updatedSubtotal,
+        discountAmount: updatedDiscountAmount,
+        gstAmount: updatedGstAmount,
+        total: updatedTotal,
+        itemsWithTax: updatedItemsWithTax,
+      } = calculateTotals(items, parseFloat(discount || "0"));
 
       // Update the transaction in Firestore
       const transactionRef = doc(db, "sales", editingTransactionId);
@@ -289,18 +341,19 @@ const Sales = () => {
         customerPhone: customerPhone || "",
         customerEmail: customerEmail || "",
         paymentMethod: paymentMethod, // Include payment method in updated data
-        items: items.map(item => ({
+        items: updatedItemsWithTax.map(item => ({
           id: item.id,
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          total: item.price * item.quantity
+          total: item.price * item.quantity,
+          gstRate: item.gstRate ?? 0,
+          gstAmount: item.gstAmount ?? 0,
         })),
         subtotal: updatedSubtotal,
         discount: parseFloat(discount || "0"),
         discountAmount: updatedDiscountAmount,
-        vatRate: parseFloat(vatRate || "0"),
-        vatAmount: updatedVatAmount,
+        gstAmount: updatedGstAmount,
         total: updatedTotal,
         updatedAt: serverTimestamp(),
       };
@@ -326,16 +379,14 @@ const Sales = () => {
     }
   };
 
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-
-  const discountAmount = (subtotal * parseFloat(discount || "0")) / 100;
-  const afterDiscount = subtotal - discountAmount;
-
-  const vatAmount = (afterDiscount * parseFloat(vatRate || "0")) / 100;
-  const total = afterDiscount + vatAmount;
+  const discountPercent = parseFloat(discount || "0");
+  const {
+    subtotal,
+    discountAmount,
+    gstAmount,
+    total,
+    itemsWithTax,
+  } = calculateTotals(items, discountPercent);
 
   // Handle PDF generation
   const handleGenerateInvoice = (saleData: any) => {
@@ -461,18 +512,19 @@ const Sales = () => {
           customerPhone: customerPhone || "",
           customerEmail: customerEmail || "",
           paymentMethod: paymentMethod, // Add payment method to transaction data
-          items: items.map(item => ({
+          items: itemsWithTax.map(item => ({
             id: item.id,
             name: item.name,
             price: item.price,
             quantity: item.quantity,
-            total: item.price * item.quantity
+            total: item.price * item.quantity,
+            gstRate: item.gstRate ?? 0,
+            gstAmount: item.gstAmount ?? 0,
           })),
           subtotal,
           discount: parseFloat(discount || "0"),
           discountAmount,
-          vatRate: parseFloat(vatRate || "0"),
-          vatAmount,
+          gstAmount,
           total,
           timestamp: serverTimestamp(),
           createdBy: "user_id", // This would be replaced by the actual user ID
@@ -502,18 +554,19 @@ const Sales = () => {
         customerPhone: customerPhone || "",
         customerEmail: customerEmail || "",
         paymentMethod: paymentMethod, // Include payment method in PDF data
-        items: items.map(item => ({
+        items: itemsWithTax.map(item => ({
           id: item.id,
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          total: item.price * item.quantity
+          total: item.price * item.quantity,
+          gstRate: item.gstRate ?? 0,
+          gstAmount: item.gstAmount ?? 0,
         })),
         subtotal,
         discount: parseFloat(discount || "0"),
         discountAmount,
-        vatRate: parseFloat(vatRate || "0"),
-        vatAmount,
+        gstAmount,
         total,
         timestamp: currentTimestamp,
       };
@@ -654,7 +707,9 @@ const Sales = () => {
       name: item.name,
       price: item.price,
       quantity: item.quantity,
-      total: item.price * item.quantity
+      total: item.price * item.quantity,
+      gstRate: item.gstRate ?? 0,
+      gstAmount: item.gstAmount ?? 0,
     }));
 
     const updatedTransaction = {
@@ -691,8 +746,7 @@ const Sales = () => {
         subtotal: transaction.subtotal,
         discount: transaction.discount,
         discountAmount: transaction.discountAmount,
-        vatRate: transaction.vatRate,
-        vatAmount: transaction.vatAmount,
+        gstAmount: transaction.gstAmount ?? 0,
         total: transaction.total,
         updatedAt: serverTimestamp(),
       };
@@ -1071,17 +1125,6 @@ const Sales = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="vat">GST Rate (%)</Label>
-                  <Input
-                    id="vat"
-                    type="number"
-                    min="0"
-                    value={vatRate}
-                    onChange={(e) => setVatRate(e.target.value)}
-                  />
-                </div>
-
                 <div className="border-t pt-4 space-y-2">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
@@ -1092,8 +1135,8 @@ const Sales = () => {
                     <span>-{formatToRupees(discountAmount)}</span>
                   </div>
                   <div className="flex justify-between text-muted-foreground">
-                    <span>GST ({vatRate}%):</span>
-                    <span>{formatToRupees(vatAmount)}</span>
+                    <span>GST (item-wise):</span>
+                    <span>{formatToRupees(gstAmount)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total:</span>

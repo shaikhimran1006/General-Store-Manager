@@ -49,6 +49,7 @@ const Inventory = () => {
     sku: "",
     category: "",
     price: 0,
+    gstRate: 0,
     costPrice: 0,
     quantity: 0,
     reorderLevel: 5,
@@ -118,6 +119,7 @@ const Inventory = () => {
       await addDoc(collection(db, "inventory"), {
         ...newItem,
         price: Number(newItem.price),
+        gstRate: Number(newItem.gstRate ?? 0),
         costPrice: Number(newItem.costPrice),
         quantity: Number(newItem.quantity),
         reorderLevel: Number(newItem.reorderLevel),
@@ -132,6 +134,7 @@ const Inventory = () => {
         sku: "",
         category: "",
         price: 0,
+        gstRate: 0,
         costPrice: 0,
         quantity: 0,
         reorderLevel: 5,
@@ -166,6 +169,7 @@ const Inventory = () => {
         sku: editItem.sku,
         category: editItem.category,
         price: Number(editItem.price),
+        gstRate: Number(editItem.gstRate ?? 0),
         costPrice: Number(editItem.costPrice),
         quantity: Number(editItem.quantity),
         reorderLevel: Number(editItem.reorderLevel),
@@ -290,6 +294,23 @@ const Inventory = () => {
                     type="number"
                     value={newItem.price}
                     onChange={(e) => setNewItem({ ...newItem, price: parseFloat(e.target.value) })}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="gstRate" className="text-right">
+                    GST Rate (%)
+                  </Label>
+                  <Input
+                    id="gstRate"
+                    type="number"
+                    value={newItem.gstRate ?? 0}
+                    onChange={(e) =>
+                      setNewItem({
+                        ...newItem,
+                        gstRate: parseFloat(e.target.value) || 0,
+                      })
+                    }
                     className="col-span-3"
                   />
                 </div>
@@ -474,6 +495,23 @@ const Inventory = () => {
                   type="number"
                   value={editItem.price}
                   onChange={(e) => setEditItem({ ...editItem, price: parseFloat(e.target.value) })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-gstRate" className="text-right">
+                  GST Rate (%)
+                </Label>
+                <Input
+                  id="edit-gstRate"
+                  type="number"
+                  value={editItem.gstRate ?? 0}
+                  onChange={(e) =>
+                    setEditItem({
+                      ...editItem,
+                      gstRate: parseFloat(e.target.value) || 0,
+                    })
+                  }
                   className="col-span-3"
                 />
               </div>
